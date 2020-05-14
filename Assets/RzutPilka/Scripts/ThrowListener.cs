@@ -9,6 +9,17 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
 
     private bool swipeLeft;
     private bool swipeRight;
+    private bool ThrowRight;
+
+    public bool IsThrowRight()
+    {
+        if(ThrowRight)
+        {
+            ThrowRight = false;
+            return true;
+        }
+        return false;
+    }
 
 
     public bool IsSwipeLeft()
@@ -39,6 +50,7 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
         KinectManager manager = KinectManager.Instance;
 
         manager.DetectGesture(userId, KinectGestures.Gestures.SwipeLeft);
+       // manager.DetectGesture(userId, KinectGestures.Gestures.ThrowRight);
 
         if (GestureInfo != null)
         {
@@ -69,9 +81,12 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
             GestureInfo.GetComponent<GUIText>().text = sGestureText;
         }
 
-        if (gesture == KinectGestures.Gestures.SwipeLeft)
-            swipeLeft = true;
+        if (gesture == KinectGestures.Gestures.ThrowRight)
+            ThrowRight = true;
 
+
+  if (gesture == KinectGestures.Gestures.SwipeLeft)
+            swipeLeft = true;
         return true;
     }
 

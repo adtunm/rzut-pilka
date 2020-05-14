@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System;
 
 public class KinectRzutScript: MonoBehaviour 
 {
@@ -9,12 +10,28 @@ public class KinectRzutScript: MonoBehaviour
     //	public Vector3 BottomLeft;
     private ThrowListener throwListener;
     private bool ballThrew = false;
+    //pozycja ramienia
+    private Vector3 userShoulderPos, oldUserShoulderPos;
+    //pozycja redlo w czasie t i t-1;
+    private Vector3 userHandPos, oldUserHandPos, lastUserHandPos, startUserHandPos;
+    private Vector3 oldBallPos;
+    //dlugosc ruchu w czasie t - t-1 i t-1 - t-2
+    private float distance, oldDistance, dist2old ;
+    private float speedx, speedy, speedz, oldSpeed;
+    private float angle, speed, uhpx, uhpy, ts, zT1, uhp1y;
+    private float timestamp, oldTimestamp;
+    private bool isThrow = false;
+    private int state = 0;
+    
 
-	public GUITexture backgroundImage;
+
+    public GUITexture backgroundImage;
 	public KinectWrapper.NuiSkeletonPositionIndex TrackedJoint = KinectWrapper.NuiSkeletonPositionIndex.HandRight;
+	public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulder = KinectWrapper.NuiSkeletonPositionIndex.ShoulderRight;
 	public GameObject OverlayObject;
     public Rigidbody Rigidbody;
-	public float smoothFactor = 5f;
+	public float smoothFactor = 1f;
+    public float count = 1;
 	
 	public GUIText debugText;
 
@@ -30,10 +47,13 @@ public class KinectRzutScript: MonoBehaviour
 			distanceToCamera = (OverlayObject.transform.position - Camera.main.transform.position).magnitude;
 		}
 	}
+
+  
 	
 	void Update() 
 	{
 		KinectManager manager = KinectManager.Instance;
+        manager.smoothing = KinectManager.Smoothing.None;
 		
 		if(manager && manager.IsInitialized())
 		{
@@ -47,6 +67,7 @@ public class KinectRzutScript: MonoBehaviour
 //			Vector3 vUp = TopLeft - BottomLeft;
 			
 			int iJointIndex = (int)TrackedJoint;
+            int iJointIndexSholder = (int)TrackedJointShoulder;
 			
 			if(manager.IsUserDetected())
 			{
@@ -60,8 +81,18 @@ public class KinectRzutScript: MonoBehaviour
                 }*/
              
                 uint userId = manager.GetPlayer1ID();
-				
-				if(manager.IsJointTracked(userId, iJointIndex))
+
+                 
+                this.userHandPos = manager.GetRawSkeletonJointPos(userId, iJointIndex);
+                this.userShoulderPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholder);
+                this.timestamp = Time.realtimeSinceStartup;
+                
+                if (!isThrow)
+                {
+                    isThrow = FindThrow(this.oldUserHandPos, this.userHandPos, this.userShoulderPos, this.oldUserShoulderPos, this.timestamp);
+                }
+
+                if (manager.IsJointTracked(userId, iJointIndex))
 				{
 					Vector3 posJoint = manager.GetRawSkeletonJointPos(userId, iJointIndex);
 
@@ -69,12 +100,14 @@ public class KinectRzutScript: MonoBehaviour
 					{
 						// 3d position to depth
 						Vector2 posDepth = manager.GetDepthMapPosForJointPos(posJoint);
-						
+                        
 						// depth pos to color pos
-						Vector2 posColor = manager.GetColorMapPosForDepthPos(posDepth);
+
+                        Vector2 posColor = manager.GetColorMapPosForDepthPos(posDepth);
 						
 						float scaleX = (float)posColor.x / KinectWrapper.Constants.ColorImageWidth;
 						float scaleY = 1.0f - (float)posColor.y / KinectWrapper.Constants.ColorImageHeight;
+                        
 						
 //						Vector3 localPos = new Vector3(scaleX * 10f - 5f, 0f, scaleY * 10f - 5f); // 5f is 1/2 of 10f - size of the plane
 //						Vector3 vPosOverlay = backgroundImage.transform.TransformPoint(localPos);
@@ -85,29 +118,149 @@ public class KinectRzutScript: MonoBehaviour
 							debugText.GetComponent<GUIText>().text = "Tracked user ID: " + userId;  // new Vector2(scaleX, scaleY).ToString();
 						}
 
-                        if (throwListener)
+                        if (!ballThrew && throwListener)
                         {
-                            if (throwListener.IsSwipeLeft() && !ballThrew)
+                            //kiedy nie wykonano rzutu i widzi obiekt
+                            if (OverlayObject)
+                            {   
+                                //ustalanie pozycji kuli na ekranie na podstawie pozycji dloni
+                                Vector3 vPosOverlay = Camera.main.ViewportToWorldPoint(new Vector3(scaleX, scaleY, (posJoint.z * (-1) + 3))); 
+                                //przesuniecie kuli pomiedzy pozycjami z t-1 a t
+                                OverlayObject.transform.position = Vector3.Lerp(OverlayObject.transform.position, vPosOverlay, smoothFactor * Time.deltaTime);
+                              
+                            }
+                            //kiedy wykonano gest rzutu
+                            if (isThrow)
                             {
+                                //wlaczenie grawitacji - oderwanie pilki od reki
                                 OverlayObject.GetComponent<Rigidbody>().useGravity = true;
-                                OverlayObject.transform.position = Vector3.Lerp(OverlayObject.transform.position, new Vector3(
-                                    OverlayObject.transform.position.x,
-                                    OverlayObject.transform.position.y+2,
-                                    OverlayObject.transform.position.z+7) , smoothFactor * Time.deltaTime);
+                                float acc = 1;
+                                //nadanie pilce przedkosci w pojedynczej klatce
+                                OverlayObject.GetComponent<Rigidbody>().AddForce(this.speedx *acc, this.speedy *acc , Mathf.Abs(this.speedz) *acc ,ForceMode.VelocityChange);
+                                //wartosci pogladowe
+                                this.oldBallPos = OverlayObject.GetComponent<Rigidbody>().position;
+                                this.oldTimestamp = this.timestamp;
                                 this.ballThrew = true;
+                                }
+                        }
+                        //jezeli wykonano gest rzutu
+                       // Debug.Log(isDistanceFound);
+                        if(ballThrew)
+                        {
+                            //wartosci pogladowe
+                            float ballDis = Vector3.Distance(this.oldBallPos, OverlayObject.GetComponent<Rigidbody>().position);
+                            float ts = this.timestamp - this.oldTimestamp;
+                            
+                            this.oldTimestamp = this.timestamp;
+                            float Dx = OverlayObject.GetComponent<Rigidbody>().position.x - oldBallPos.x;
+                            float Dy = OverlayObject.GetComponent<Rigidbody>().position.y - oldBallPos.y;
+                            float Dz = OverlayObject.GetComponent<Rigidbody>().position.z - oldBallPos.z;
+                            this.oldBallPos = OverlayObject.GetComponent<Rigidbody>().position;
+                            float ballSpeed = ballDis / ts; 
+                                                                                                                                            Debug.Log("Czas = " + timestamp + "\n" + 
+                                                                                                                                                      "x = " + OverlayObject.GetComponent<Rigidbody>().position.x + "\n" +
+                                                                                                                                                      "y = " + OverlayObject.GetComponent<Rigidbody>().position.y + "\n" +
+                                                                                                                                                      "z = " + OverlayObject.GetComponent<Rigidbody>().position.z + "\n" +
+                                                                                                                                                      "Dx = "+ Dx + "\n" +
+                                                                                                                                                      "Dy = "+ Dy + "\n" +
+                                                                                                                                                      "Dz = "+ Dz + "\n" +
+                                                                                                                                                      "speed = " + ballSpeed  +"\n" +
+                                                                                                                                                      "ballDis = " + ballDis + "\n" +
+                                                                                                                                                      "ts = " + ts );
+
+                            if(OverlayObject.transform.position.y < 0)
+                            {
+                                //wylaczenie grawitacji i wyhamowanie pilki
+                                OverlayObject.GetComponent<Rigidbody>().useGravity = false;
+                                Rigidbody.velocity = Vector3.zero;
                             }
                         }
-
-                        if (OverlayObject && throwListener && !ballThrew)
-						{
-							Vector3 vPosOverlay = Camera.main.ViewportToWorldPoint(new Vector3(scaleX, scaleY, distanceToCamera));
-							OverlayObject.transform.position = Vector3.Lerp(OverlayObject.transform.position, vPosOverlay, smoothFactor * Time.deltaTime);
-						}
-					}
-				}
-				
-			}
-			
+                    }
+				}				
+			}			
 		}
 	}
+    //przerobiony skrypt wykrywania rzutu
+    private bool FindThrow(Vector3 oldUserHandPos, Vector3 userHandPos, Vector3 userShoulderPos, Vector3 oldUserShoulderPos, float timestamp)
+    {   //w przypadku gdy zgubi po³o¿enie rêki
+        if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
+        {   //stan 0 -> reka nie zlorzona do rzutu
+            //sprawdza czy odleglosc ranienia i dloni nie jest duza i czy reka jesr za ramieniem w plaszczyznie z
+            if (this.state == 0 && Vector3.Distance(userHandPos, userShoulderPos) < 0.3 && userHandPos.z - userShoulderPos.z > 0)
+            {
+                this.state = 1;                                                                                                                                                               Debug.Log("state 1! \n" + timestamp);
+                return false;
+            }
+
+            //stan 1 -> reka zlozona do rzutu
+            //teraz sprawdza czy reka w plaszczyznie z znajduje sie przed ramieniem, od tego czasu zaczyna zliczac predkosc
+            if(this.state == 1 && Vector3.Distance(userHandPos, userShoulderPos) < 0.3 && userHandPos.z - userShoulderPos.z <= 0)
+            {
+                this.startUserHandPos = userHandPos;
+                this.oldUserHandPos = userHandPos;
+                this.state = 2;
+                                                                                                                                                                Debug.Log("state 2!" + "\n" +startUserHandPos.x + "\n" +  startUserHandPos.y + "\n" + startUserHandPos.z);
+                return false;
+            }   //jezeli reka oddali sie od ramienia powrot do stanu 0
+            else if(state == 1 && Vector3.Distance(userHandPos, userShoulderPos) > 0.3)
+            {
+                this.state = 0;
+                                                                                                                                                                    Debug.Log("State 1 -> State 0! \n" + timestamp);
+                return false;
+            }
+            //stan 2 -> reka wykonuje rzut
+            if (this.state == 2)
+            {
+                this.distance = Vector3.Distance(oldUserHandPos, userHandPos);
+                float ts = timestamp - this.oldTimestamp;
+                this.speed = this.distance / ts;
+                this.oldTimestamp = timestamp;
+                //jezeli predkosc w poprzednim pomiarze jest nizsza program uznaje, ze rzut zostal wykonany
+                //stan 3 -> rzut wykonany
+                if (this.oldSpeed > this.speed)
+                {
+                    this.state = 3;
+                                                                                                                                                                        Debug.Log("State 3! \n" + timestamp);
+                    return true;
+                }
+                else  //wyliczanie pogladowych i wymaganych wartosci rzutu
+                {
+                    this.oldDistance = distance;
+                    this.lastUserHandPos = userHandPos;
+                    this.oldSpeed = this.speed;
+
+                    float Dx = userHandPos.x - oldUserHandPos.x;
+                    float Dy = userHandPos.y - oldUserHandPos.y;
+                    float Dz = userHandPos.z - oldUserHandPos.z;
+
+                    this.speedx = Dx / ts;
+                    this.speedy = Dy / ts;
+                    this.speedz= Dz / ts;
+
+                    float sinB = Mathf.Sin(Dy / distance);
+                    float kat = sinB * 180 / Mathf.PI;
+                    this.oldUserHandPos = userHandPos;
+                    this.angle = kat;
+
+                                                                                                                                                                        Debug.Log("Czas = " + timestamp + "\n" +
+                                                                                                                                                                                  "Dx = " + Dx + "\n" +
+                                                                                                                                                                                  "Dy = " + Dy + "\n" +
+                                                                                                                                                                                  "Dz = " + Dz + "\n" +
+                                                                                                                                                                                  "speedx = " + speedx + "\n" +
+                                                                                                                                                                                  "speedy = " + speedy + "\n" +
+                                                                                                                                                                                  "speedz = " + speedz + "\n" +
+                                                                                                                                                                                  "poz z = " + userHandPos.z + "\n" +
+                                                                                                                                                                                  "old poz z = " + oldUserHandPos.z + "\n" +
+                                                                                                                                                                                  "dyst = " + distance + "\n" +
+                                                                                                                                                                                  "sinB = " + sinB + "\n" +
+                                                                                                                                                                                  "kat = " + kat + "\n" +
+                                                                                                                                                                                  "czas = " + ts + "\n" +
+                                                                                                                                                                                  "speed = " + speed + "\n");
+                    return false;
+                }
+            }
+            return false;        
+        }
+        return false;
+    }
 }
