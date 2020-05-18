@@ -464,7 +464,7 @@ MonoBehaviour:
   Player2Avatars: []
   Player1CalibrationPose: 0
   Player2CalibrationPose: 0
-  Player1Gestures: 08000000090000000c0000000d00000015000000
+  Player1Gestures: 08000000090000000c0000000d00000002000000
   Player2Gestures: 
   MinTimeBetweenGestures: 0.7
   GestureListeners:

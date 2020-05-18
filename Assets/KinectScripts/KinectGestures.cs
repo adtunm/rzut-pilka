@@ -311,7 +311,7 @@ public class KinectGestures
                 }
                 break;
             // check for RaiseRightHand
-           /* case Gestures.RaiseRightHand:
+           case Gestures.RaiseRightHand:
 				switch(gestureData.state)
 				{
 					case 0:  // gesture detection
@@ -665,7 +665,7 @@ public class KinectGestures
 						break;
 				}
 				break;
-                */
+                
 			// check for SwipeRight
 			case Gestures.SwipeRight:
 				switch(gestureData.state)
@@ -719,7 +719,7 @@ public class KinectGestures
 						break;
 				}
 				break;
-                /*
+                
 			// check for SwipeUp
 			case Gestures.SwipeUp:
 				switch(gestureData.state)
@@ -1178,7 +1178,7 @@ public class KinectGestures
 				}
 				break;
 
-			*/// here come more gesture-cases
+			// here come more gesture-cases
 		}
 	}
 

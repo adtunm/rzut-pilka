@@ -10,6 +10,7 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
     private bool swipeLeft;
     private bool swipeRight;
     private bool ThrowRight;
+    private bool riseLeftHand;
 
     public bool IsThrowRight()
     {
@@ -44,6 +45,15 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
         return false;
     }
 
+    public bool IsRiseLeftHand()
+    {
+        if (riseLeftHand)
+        {
+            riseLeftHand = false;
+            return true;
+        }
+        return false;
+    }
 
     public void UserDetected(uint userId, int userIndex)
     {
@@ -54,7 +64,7 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
 
         if (GestureInfo != null)
         {
-            GestureInfo.GetComponent<GUIText>().text = "Swipe left or right to change the slides.";
+         //   GestureInfo.GetComponent<GUIText>().text = "wykonaj gest rzutu.";
         }
     }
 
@@ -78,15 +88,15 @@ public class ThrowListener : MonoBehaviour, KinectGestures.GestureListenerInterf
         string sGestureText = gesture + " detected";
         if (GestureInfo != null)
         {
-            GestureInfo.GetComponent<GUIText>().text = sGestureText;
+          //  GestureInfo.GetComponent<GUIText>().text = sGestureText;
         }
 
         if (gesture == KinectGestures.Gestures.ThrowRight)
             ThrowRight = true;
 
 
-  if (gesture == KinectGestures.Gestures.SwipeLeft)
-            swipeLeft = true;
+  if (gesture == KinectGestures.Gestures.RaiseLeftHand)
+            riseLeftHand = true;
         return true;
     }
 
