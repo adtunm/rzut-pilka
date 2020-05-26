@@ -19,8 +19,9 @@ public class KinectRzutScript: MonoBehaviour
     //dlugosc ruchu w czasie t - t-1 i t-1 - t-2
     public float distance, oldDistance, dist2old ;
     public float speedx, speedy, speedz, oldSpeed;
+    private float acceleration, fullAcceleration;
     private float angle, speed, uhpx, uhpy, ts, zT1, uhp1y;
-    private float timestamp, oldTimestamp;
+    private float timestamp, oldTimestamp, startTimestamp;
     private bool isThrow = false;
     private int state = 0;
     private Vector2 startPos;
@@ -131,6 +132,8 @@ public class KinectRzutScript: MonoBehaviour
                             this.ballThrew = false;
                             this.state = 0;
                             this.isThrow = false;
+                            this.speed = 0;
+                            this.oldSpeed = 0;
                             this.textbox.info = "Wykonaj gest rzutu prawa reka.";
                         }
                         
@@ -190,13 +193,14 @@ public class KinectRzutScript: MonoBehaviour
                                                                                                                                                       "actualDis = " + actualDis + "\n" +
                                                                                                                                                       "ts = " + ts );
                             
-                             this.textbox.info = "predkosc wyrzutu: " + speed.ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
+                             this.textbox.info = "predkosc wyrzutu: " + oldSpeed.ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
                                                  "odleglosc rzutu: " + actualDis.ToString("#0.0#;(#0.0#);-\0-") + "m \n" +
                                                  "kat wyrzutu: " + this.angle.ToString("#0.0#;(#0.0#);-\0-") + "\n";
-                            if (OverlayObject.transform.position.y < 0)
+                            if (OverlayObject.transform.position.y < 0.2)
                             {
                                 //wylaczenie grawitacji i wyhamowanie pilki
                                 OverlayObject.GetComponent<Rigidbody>().useGravity = false;
+                                OverlayObject.transform.position = new Vector3(OverlayObject.GetComponent<Rigidbody>().position.x, (float)0.2, OverlayObject.GetComponent<Rigidbody>().position.z);
                                 Rigidbody.velocity = Vector3.zero;
                                 this.state = 4;
                                 textbox.info += "Aby wykonac rzut ponownie, unies lewa reke";
@@ -213,7 +217,7 @@ public class KinectRzutScript: MonoBehaviour
         if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
         {   //stan 0 -> reka nie zlorzona do rzutu
             //sprawdza czy odleglosc ranienia i dloni nie jest duza i czy reka jesr za ramieniem w plaszczyznie z
-            if (this.state == 0 && Vector3.Distance(userHandPos, userShoulderPos) < 0.3 && userHandPos.z - userShoulderPos.z > 0)
+            if (this.state == 0 && Vector3.Distance(userHandPos, userShoulderPos) < 0.4 && userHandPos.z - userShoulderPos.z > 0)
             {
                 this.state = 1;                                                                                                                                                               Debug.Log("state 1! \n" + timestamp);
                 return false;
@@ -221,16 +225,17 @@ public class KinectRzutScript: MonoBehaviour
 
             //stan 1 -> reka zlozona do rzutu
             //teraz sprawdza czy reka w plaszczyznie z znajduje sie przed ramieniem, od tego czasu zaczyna zliczac predkosc
-            if(this.state == 1 && Vector3.Distance(userHandPos, userShoulderPos) < 0.3 && userHandPos.z - userShoulderPos.z <= 0)
+            if(this.state == 1 && Vector3.Distance(userHandPos, userShoulderPos) < 0.4 && userHandPos.z - userShoulderPos.z <= 0)
             {
                 this.startUserHandPos = OverlayObject.GetComponent<Rigidbody>().position;
                 this.startPos = new Vector2(startUserHandPos.x, startUserHandPos.z);
                 this.oldUserHandPos = userHandPos;
                 this.state = 2;
-                                                                                                                                                                Debug.Log("state 2!" + "\n" +startUserHandPos.x + "\n" +  startUserHandPos.y + "\n" + startUserHandPos.z);
+                this.oldTimestamp = timestamp;                                                                                                                                                Debug.Log("state 2!" + "\n" +startUserHandPos.x + "\n" +  startUserHandPos.y + "\n" + startUserHandPos.z);
+                this.startTimestamp = timestamp;
                 return false;
             }   //jezeli reka oddali sie od ramienia powrot do stanu 0
-            else if(state == 1 && Vector3.Distance(userHandPos, userShoulderPos) > 0.3)
+            else if(state == 1 && Vector3.Distance(userHandPos, userShoulderPos) > 0.4)
             {
                 this.state = 0;
                                                                                                                                                                     Debug.Log("State 1 -> State 0! \n" + timestamp);
@@ -255,6 +260,8 @@ public class KinectRzutScript: MonoBehaviour
                 {
                     this.oldDistance = distance;
                     this.lastUserHandPos = userHandPos;
+                    this.acceleration = (this.speed - this.oldSpeed) / ts;
+                    this.fullAcceleration = this.speed / (timestamp - this.startTimestamp);
                     this.oldSpeed = this.speed;
 
                     float Dx = userHandPos.x - oldUserHandPos.x;
@@ -269,21 +276,24 @@ public class KinectRzutScript: MonoBehaviour
                     float kat = sinB * 180 / Mathf.PI;
                     this.oldUserHandPos = userHandPos;
                     this.angle = kat;
+                   
 
-                                                                                                                                                                        Debug.Log("Czas = " + timestamp + "\n" +
-                                                                                                                                                                                  "Dx = " + Dx + "\n" +
-                                                                                                                                                                                  "Dy = " + Dy + "\n" +
-                                                                                                                                                                                  "Dz = " + Dz + "\n" +
-                                                                                                                                                                                  "speedx = " + speedx + "\n" +
-                                                                                                                                                                                  "speedy = " + speedy + "\n" +
-                                                                                                                                                                                  "speedz = " + speedz + "\n" +
-                                                                                                                                                                                  "poz z = " + userHandPos.z + "\n" +
-                                                                                                                                                                                  "old poz z = " + oldUserHandPos.z + "\n" +
-                                                                                                                                                                                  "dyst = " + distance + "\n" +
-                                                                                                                                                                                  "sinB = " + sinB + "\n" +
-                                                                                                                                                                                  "kat = " + kat + "\n" +
-                                                                                                                                                                                  "czas = " + ts + "\n" +
-                                                                                                                                                                                  "speed = " + speed + "\n");
+                    Debug.Log("Czas = " + timestamp + "\n" +
+                                "Dx = " + Dx + "\n" +
+                                "Dy = " + Dy + "\n" +
+                                "Dz = " + Dz + "\n" +
+                                "speedx = " + speedx + "\n" +
+                                "speedy = " + speedy + "\n" +
+                                "speedz = " + speedz + "\n" +
+                                "poz z = " + userHandPos.z + "\n" +
+                                "old poz z = " + oldUserHandPos.z + "\n" +
+                                "dyst = " + distance + "\n" +
+                                "sinB = " + sinB + "\n" +
+                                "kat = " + kat + "\n" +
+                                "czas = " + ts + "\n" +
+                                "speed = " + speed + "\n" +
+                                "przyspieszenie = " + acceleration + "\n"+
+                                "przyspieszenie calkowite = " + fullAcceleration + "\n" );
                     return false;
                 }
             }
