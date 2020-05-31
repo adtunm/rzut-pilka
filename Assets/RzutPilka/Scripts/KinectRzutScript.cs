@@ -31,8 +31,9 @@ public class KinectRzutScript: MonoBehaviour
 
     public GUITexture backgroundImage;
 	public KinectWrapper.NuiSkeletonPositionIndex TrackedJoint = KinectWrapper.NuiSkeletonPositionIndex.HandRight;
-	public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulder = KinectWrapper.NuiSkeletonPositionIndex.ShoulderRight;
-	public GameObject OverlayObject;
+	public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulderRight = KinectWrapper.NuiSkeletonPositionIndex.ShoulderRight;
+    public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulderLeft = KinectWrapper.NuiSkeletonPositionIndex.ShoulderLeft;
+    public GameObject OverlayObject;
     public Rigidbody Rigidbody;
 	public float smoothFactor = 1f;
     public float count = 1;
@@ -75,9 +76,10 @@ public class KinectRzutScript: MonoBehaviour
 //			Vector3 vUp = TopLeft - BottomLeft;
 			
 			int iJointIndex = (int)TrackedJoint;
-            int iJointIndexSholder = (int)TrackedJointShoulder;
-			
-			if(manager.IsUserDetected())
+            int iJointIndexSholderRight = (int)TrackedJointShoulderRight;
+            int iJointIndexSholderLeft = (int)TrackedJointShoulderLeft;
+
+            if (manager.IsUserDetected())
 			{
                 /*if (throwListener)
                 {
@@ -92,12 +94,14 @@ public class KinectRzutScript: MonoBehaviour
 
                  
                 this.userHandPos = manager.GetRawSkeletonJointPos(userId, iJointIndex);
-                this.userShoulderPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholder);
+                this.userShoulderRightPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholderRight);
+                this.userShoulderLeftPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholderLeft);
+
                 this.timestamp = Time.realtimeSinceStartup;
                 
                 if (!isThrow)
                 {
-                    isThrow = FindThrow(this.oldUserHandPos, this.userHandPos, this.userShoulderPos, this.oldUserShoulderPos, this.timestamp);
+                    isThrow = FindThrow();
                 }
 
                 if (manager.IsJointTracked(userId, iJointIndex))
@@ -207,8 +211,30 @@ public class KinectRzutScript: MonoBehaviour
 			}			
 		}
 	}
+
+    //skrypt wykrywania rzutu v2
+
+    private bool FindThrow()
+    {
+        if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
+        {
+            if (this.state == 0 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && Mathf.Abs(userShoulderRightPos.z) - Mathf.Abs(userShoulderLeftPos.z) > 0)
+            {
+                this.state = 1; Debug.Log("state 1! \n" + timestamp);
+                return false;
+            }
+        }
+          
+
+
+        
+
+
+
+
     //przerobiony skrypt wykrywania rzutu
-    private bool FindThrow(Vector3 oldUserHandPos, Vector3 userHandPos, Vector3 userShoulderPos, Vector3 oldUserShoulderPos, float timestamp)
+
+    /*private bool FindThrow()
     {   //w przypadku gdy zgubi po³o¿enie rêki
         if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
         {   //stan 0 -> reka nie zlorzona do rzutu
@@ -290,5 +316,5 @@ public class KinectRzutScript: MonoBehaviour
             return false;        
         }
         return false;
-    }
+    }*/
 }
