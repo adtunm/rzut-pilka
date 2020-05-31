@@ -12,7 +12,7 @@ public class KinectRzutScript: MonoBehaviour
     private ThrowListener throwListener;
     private bool ballThrew = false;
     //pozycja ramienia
-    private Vector3 userShoulderPos, oldUserShoulderPos;
+    private Vector3 userShoulderRightPos, userShoulderLeftPos, oldUserShoulderRightPos, oldUserShoulderLeftPos;
     //pozycja redlo w czasie t i t-1;
     private Vector3 userHandPos, oldUserHandPos, lastUserHandPos, startUserHandPos;
     private Vector3 oldBallPos;
@@ -135,6 +135,7 @@ public class KinectRzutScript: MonoBehaviour
                             this.ballThrew = false;
                             this.state = 0;
                             this.isThrow = false;
+                            this.oldSpeed = 0;
                             this.textbox.info = "Wykonaj gest rzutu prawa reka.";
                         }
                         
@@ -172,7 +173,7 @@ public class KinectRzutScript: MonoBehaviour
                             //wartosci pogladowe
                             float ballDis = Vector3.Distance(this.oldBallPos, OverlayObject.GetComponent<Rigidbody>().position);
                             float ts = this.timestamp - this.oldTimestamp;
-                            float actualDis = Vector2.Distance(startPos, new Vector2(OverlayObject.GetComponent<Rigidbody>().position.x, OverlayObject.GetComponent<Rigidbody>().position.z));
+                            float actualDis = Vector2.Distance(this.startBallPos, new Vector2(OverlayObject.GetComponent<Rigidbody>().position.x, OverlayObject.GetComponent<Rigidbody>().position.z));
                             this.oldTimestamp = this.timestamp;
                             float Dx = OverlayObject.GetComponent<Rigidbody>().position.x - oldBallPos.x;
                             float Dy = OverlayObject.GetComponent<Rigidbody>().position.y - oldBallPos.y;
@@ -183,8 +184,8 @@ public class KinectRzutScript: MonoBehaviour
                                                                                                                                                       "x = " + OverlayObject.GetComponent<Rigidbody>().position.x + "\n" +
                                                                                                                                                       "y = " + OverlayObject.GetComponent<Rigidbody>().position.y + "\n" +
                                                                                                                                                       "z = " + OverlayObject.GetComponent<Rigidbody>().position.z + "\n" +
-                                                                                                                                                      "startz = " + startPos.x + "\n" +
-                                                                                                                                                      "starty = " + startPos.y + "\n" +
+                                                                                                                                                      "startz = " + startBallPos.x + "\n" +
+                                                                                                                                                      "starty = " + startBallPos.y + "\n" +
 
                                                                                                                                                       "Dx = "+ Dx + "\n" +
                                                                                                                                                       "Dy = "+ Dy + "\n" +
@@ -194,7 +195,7 @@ public class KinectRzutScript: MonoBehaviour
                                                                                                                                                       "actualDis = " + actualDis + "\n" +
                                                                                                                                                       "ts = " + ts );
                             
-                             this.textbox.info = "predkosc wyrzutu: " + speed.ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
+                             this.textbox.info = "predkosc wyrzutu: " + oldSpeed.ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
                                                  "odleglosc rzutu: " + actualDis.ToString("#0.0#;(#0.0#);-\0-") + "m \n" +
                                                  "kat wyrzutu: " + this.angle.ToString("#0.0#;(#0.0#);-\0-") + "\n";
                             if (OverlayObject.transform.position.y < 0)
@@ -216,31 +217,38 @@ public class KinectRzutScript: MonoBehaviour
 
     private bool FindThrow()
     {
+        Debug.LogWarning("TS = " + this.timestamp + "\n" +
+                  "\t x \t y \t z \n reka \t" + userHandPos.x + " | " + userHandPos.y + " | " + userHandPos.z + "\n" + 
+                  "ramie P \t" + userShoulderRightPos.x + " | "+ userShoulderRightPos.y + " | " + userShoulderRightPos.z + "\n" +
+                   "ramie L \t" + userShoulderLeftPos.x + " | " + userShoulderLeftPos.y + " | " + userShoulderLeftPos.z + "\t");
         if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
         {
-            if (this.state == 0 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && Mathf.Abs(userShoulderRightPos.z) - Mathf.Abs(userShoulderLeftPos.z) > 0)
+            if (this.state == 0 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.2 && Vector3.Distance(userHandPos, userShoulderRightPos) < 0.3 && userShoulderRightPos.z > userShoulderLeftPos.z)
             {
                 this.state = 1; Debug.Log("state 1! \n" + timestamp);
-                return false;
             }
 
-            if (this.state == 1 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && userHandPos.z - userShoulderPos.z <= 0)
+            if (this.state == 1 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && userHandPos.z < oldUserHandPos.z 
+               && userShoulderRightPos.z < oldUserShoulderRightPos.z && Vector3.Distance(userHandPos, oldUserHandPos)>0.03)
             {
                 //this.startUserHandPos = OverlayObject.GetComponent<Rigidbody>().position;
                 this.startUserHandPos = this.userHandPos;
                 this.startBallPos = new Vector2(OverlayObject.GetComponent<Rigidbody>().position.x, OverlayObject.GetComponent<Rigidbody>().position.z);
                 this.oldUserHandPos = this.userHandPos;
+               // this.oldUserShoulderLeftPos = this.userShoulderRightPos;
+               // this.oldUserShoulderRightPos = this.userShoulderRightPos;
                 this.oldTimestamp = this.timestamp;
                 this.state = 2;
                 Debug.Log("state 2!" + "\n" + startUserHandPos.x + "\n" + startUserHandPos.y + "\n" + startUserHandPos.z);
                 return false;
             }   
-            else if (state == 1 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) > 0.3)
+            else if (state == 1 && Vector3.Distance(userHandPos, userShoulderRightPos) > 0.3)
             {
                 this.state = 0;
                 Debug.Log("State 1 -> State 0! \n" + timestamp);
                 return false;
             }
+
 
             if (this.state == 2)
             {
@@ -292,6 +300,10 @@ public class KinectRzutScript: MonoBehaviour
                     return false;
                 }
             }
+            this.oldUserHandPos = this.userHandPos;
+            this.oldUserShoulderLeftPos = this.userShoulderRightPos;
+            this.oldUserShoulderRightPos = this.userShoulderRightPos;
+            this.oldTimestamp = this.timestamp;
             return false;
         }
         return false;
