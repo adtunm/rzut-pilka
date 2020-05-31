@@ -24,7 +24,7 @@ public class KinectRzutScript: MonoBehaviour
     private float timestamp, oldTimestamp, startTimestamp;
     private bool isThrow = false;
     private int state = 0;
-    private Vector2 startPos;
+    private Vector2 startBallPos;
 
     public TextScript textbox;
 
@@ -32,8 +32,9 @@ public class KinectRzutScript: MonoBehaviour
 
     public GUITexture backgroundImage;
 	public KinectWrapper.NuiSkeletonPositionIndex TrackedJoint = KinectWrapper.NuiSkeletonPositionIndex.HandRight;
-	public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulder = KinectWrapper.NuiSkeletonPositionIndex.ShoulderRight;
-	public GameObject OverlayObject;
+	public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulderRight = KinectWrapper.NuiSkeletonPositionIndex.ShoulderRight;
+    public KinectWrapper.NuiSkeletonPositionIndex TrackedJointShoulderLeft = KinectWrapper.NuiSkeletonPositionIndex.ShoulderLeft;
+    public GameObject OverlayObject;
     public Rigidbody Rigidbody;
 	public float smoothFactor = 1f;
     public float count = 1;
@@ -76,9 +77,10 @@ public class KinectRzutScript: MonoBehaviour
 //			Vector3 vUp = TopLeft - BottomLeft;
 			
 			int iJointIndex = (int)TrackedJoint;
-            int iJointIndexSholder = (int)TrackedJointShoulder;
-			
-			if(manager.IsUserDetected())
+            int iJointIndexSholderRight = (int)TrackedJointShoulderRight;
+            int iJointIndexSholderLeft = (int)TrackedJointShoulderLeft;
+
+            if (manager.IsUserDetected())
 			{
                 /*if (throwListener)
                 {
@@ -93,12 +95,14 @@ public class KinectRzutScript: MonoBehaviour
 
                  
                 this.userHandPos = manager.GetRawSkeletonJointPos(userId, iJointIndex);
-                this.userShoulderPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholder);
+                this.userShoulderRightPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholderRight);
+                this.userShoulderLeftPos = manager.GetRawSkeletonJointPos(userId, iJointIndexSholderLeft);
+
                 this.timestamp = Time.realtimeSinceStartup;
                 
                 if (!isThrow)
                 {
-                    isThrow = FindThrow(this.oldUserHandPos, this.userHandPos, this.userShoulderPos, this.oldUserShoulderPos, this.timestamp);
+                    isThrow = FindThrow();
                 }
 
                 if (manager.IsJointTracked(userId, iJointIndex))
@@ -211,8 +215,102 @@ public class KinectRzutScript: MonoBehaviour
 			}			
 		}
 	}
+
+    //skrypt wykrywania rzutu v2
+
+    private bool FindThrow()
+    {
+        if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
+        {
+            if (this.state == 0 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && Mathf.Abs(userShoulderRightPos.z) - Mathf.Abs(userShoulderLeftPos.z) > 0)
+            {
+                this.state = 1; Debug.Log("state 1! \n" + timestamp);
+                return false;
+            }
+
+            if (this.state == 1 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) < 0.3 && userHandPos.z - userShoulderPos.z <= 0)
+            {
+                //this.startUserHandPos = OverlayObject.GetComponent<Rigidbody>().position;
+                this.startUserHandPos = this.userHandPos;
+                this.startBallPos = new Vector2(OverlayObject.GetComponent<Rigidbody>().position.x, OverlayObject.GetComponent<Rigidbody>().position.z);
+                this.oldUserHandPos = this.userHandPos;
+                this.oldTimestamp = this.timestamp;
+                this.state = 2;
+                Debug.Log("state 2!" + "\n" + startUserHandPos.x + "\n" + startUserHandPos.y + "\n" + startUserHandPos.z);
+                return false;
+            }   
+            else if (state == 1 && Mathf.Abs(userHandPos.y - userShoulderRightPos.y) > 0.3)
+            {
+                this.state = 0;
+                Debug.Log("State 1 -> State 0! \n" + timestamp);
+                return false;
+            }
+
+            if (this.state == 2)
+            {
+                this.distance = Vector3.Distance(oldUserHandPos, userHandPos);
+                float ts = timestamp - this.oldTimestamp;
+                this.speed = this.distance / ts;
+                this.oldTimestamp = this.timestamp;
+                //jezeli predkosc w poprzednim pomiarze jest nizsza program uznaje, ze rzut zostal wykonany
+                //stan 3 -> rzut wykonany
+                if (this.oldSpeed > this.speed)
+                {
+                    this.state = 3;
+                    Debug.Log("State 3! \n" + timestamp);
+                    return true;
+                }
+                else  //wyliczanie pogladowych i wymaganych wartosci rzutu
+                {
+                    this.oldDistance = this.distance;
+                    this.lastUserHandPos = this.userHandPos;
+                    this.oldSpeed = this.speed;
+
+                    float Dx = this.userHandPos.x - this.oldUserHandPos.x;
+                    float Dy = this.userHandPos.y - this.oldUserHandPos.y;
+                    float Dz = this.userHandPos.z - this.oldUserHandPos.z;
+
+                    this.speedx = Dx / ts;
+                    this.speedy = Dy / ts;
+                    this.speedz = Dz / ts;
+
+                    float sinB = Mathf.Sin(Dy / distance);
+                    float kat = sinB * 180 / Mathf.PI;
+                    this.oldUserHandPos = this.userHandPos;
+                    this.angle = kat;
+
+                    Debug.Log("Czas = " + timestamp + "\n" +
+                              "Dx = " + Dx + "\n" +
+                              "Dy = " + Dy + "\n" +
+                              "Dz = " + Dz + "\n" +
+                              "speedx = " + speedx + "\n" +
+                              "speedy = " + speedy + "\n" +
+                              "speedz = " + speedz + "\n" +
+                              "poz z = " + userHandPos.z + "\n" +
+                              "old poz z = " + oldUserHandPos.z + "\n" +
+                              "dyst = " + distance + "\n" +
+                              "sinB = " + sinB + "\n" +
+                              "kat = " + kat + "\n" +
+                              "czas = " + ts + "\n" +
+                              "speed = " + speed + "\n");
+                    return false;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
+          
+
+
+        
+
+
+
+
     //przerobiony skrypt wykrywania rzutu
-    private bool FindThrow(Vector3 oldUserHandPos, Vector3 userHandPos, Vector3 userShoulderPos, Vector3 oldUserShoulderPos, float timestamp)
+
+    /*private bool FindThrow()
     {   //w przypadku gdy zgubi po³o¿enie rêki
         if (userHandPos.x != 0 && userHandPos.y != 0 && userHandPos.z != 0)
         {   //stan 0 -> reka nie zlorzona do rzutu
@@ -300,5 +398,5 @@ public class KinectRzutScript: MonoBehaviour
             return false;        
         }
         return false;
-    }
+    }*/
 }
