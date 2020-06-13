@@ -19,7 +19,7 @@ public class KinectRzutScript: MonoBehaviour
     //dlugosc ruchu w czasie t - t-1 i t-1 - t-2
     public float distance, oldDistance, dist2old ;
     public float speedx, speedy, speedz, oldSpeed;
-    private float acceleration, fullAcceleration;
+    private float acceleration=2, fullAcceleration;
     private float angle, speed, uhpx, uhpy, ts, zT1, uhp1y;
     private float timestamp, oldTimestamp, startTimestamp;
     private bool isThrow = false;
@@ -44,10 +44,12 @@ public class KinectRzutScript: MonoBehaviour
 	private float distanceToCamera = 10f;
 
 
-	void Start()
-	{
+    void Start()
+    {
         this.throwListener = Camera.main.GetComponent<ThrowListener>();
-        this.textbox.info = "Wykonaj gest rzutu prawa reka.";
+         
+            //this.textbox.info = "Wykonaj gest rzutu prawa reka.";
+        
         if (OverlayObject)
 		{
 			distanceToCamera = (OverlayObject.transform.position - Camera.main.transform.position).magnitude;
@@ -90,7 +92,7 @@ public class KinectRzutScript: MonoBehaviour
                         this.ballThrew = true;
                     }
                 }*/
-             
+                
                 uint userId = manager.GetPlayer1ID();
 
                  
@@ -100,8 +102,11 @@ public class KinectRzutScript: MonoBehaviour
 
                 this.timestamp = Time.realtimeSinceStartup;
                 
+
+
                 if (!isThrow)
                 {
+                    this.textbox.info = "Wykonaj gest rzutu prawa reka.";
                     isThrow = FindThrow();
                 }
 
@@ -138,7 +143,10 @@ public class KinectRzutScript: MonoBehaviour
                             this.isThrow = false;
 
                             this.oldSpeed = 0;
-                            this.textbox.info = "Wykonaj gest rzutu prawa reka.";
+                            
+                            
+                                this.textbox.info = "Wykonaj gest rzutu prawa reka.";
+                            
                         }
                         
                         
@@ -159,9 +167,9 @@ public class KinectRzutScript: MonoBehaviour
                             {
                                 //wlaczenie grawitacji - oderwanie pilki od reki
                                 OverlayObject.GetComponent<Rigidbody>().useGravity = true;
-                                float acc = 1;
+                                 this.acceleration = 2;
                                 //nadanie pilce przedkosci w pojedynczej klatce
-                                OverlayObject.GetComponent<Rigidbody>().AddForce(this.speedx *acc, this.speedy *acc , Mathf.Abs(this.speedz) *acc ,ForceMode.VelocityChange);
+                                OverlayObject.GetComponent<Rigidbody>().AddForce(this.speedx *this.acceleration, this.speedy *this.acceleration , Mathf.Abs(this.speedz) *this.acceleration ,ForceMode.VelocityChange);
                                 //wartosci pogladowe
                                 this.oldBallPos = OverlayObject.GetComponent<Rigidbody>().position;
                                 this.oldTimestamp = this.timestamp;
@@ -197,7 +205,7 @@ public class KinectRzutScript: MonoBehaviour
                                                                                                                                                       "actualDis = " + actualDis + "\n" +
                                                                                                                                                       "ts = " + ts );
                             
-                             this.textbox.info = "predkosc wyrzutu: " + oldSpeed.ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
+                             this.textbox.info = "predkosc wyrzutu: " + (this.acceleration*oldSpeed).ToString("#0.0#;(#0.0#);-\0-") + "m/s \n" +
                                                  "odleglosc rzutu: " + actualDis.ToString("#0.0#;(#0.0#);-\0-") + "m \n" +
                                                  "kat wyrzutu: " + this.angle.ToString("#0.0#;(#0.0#);-\0-") + "\n";
                             if (OverlayObject.transform.position.y < 0.2)
@@ -212,7 +220,11 @@ public class KinectRzutScript: MonoBehaviour
                         }
                     }
 				}				
-			}			
+			}
+            else if(this.state < 3)
+            {
+                this.textbox.info = "";
+            }
 		}
 	}
 
